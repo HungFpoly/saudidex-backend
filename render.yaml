@@ -3,7 +3,7 @@ services:
     name: saudidex-backend
     runtime: node
     plan: free
-    buildCommand: npm ci && npx playwright install --with-deps chromium && npm run build
+    buildCommand: npm ci && PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium chromium-headless-shell && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

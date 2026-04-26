@@ -1394,7 +1394,7 @@ function setupApiRoutes(app: express.Application) {
       useAdvanced = false,
       maxPages = 20,
       contentOnly = false,
-      allowAI = true,
+      allowAI = false,
       pageCursor,
     } = req.body;
 
@@ -1422,7 +1422,10 @@ function setupApiRoutes(app: express.Application) {
 
     // AI_DISABLED mode: only return deterministic results, skip all AI calls
     const aiDisabled = process.env.AI_DISABLED === 'true';
-    const effectiveAllowAI = Boolean(allowAI) && !aiDisabled;
+    // Only run AI when caller explicitly enables it AND has selected a provider.
+    const hasExplicitProvider = typeof provider === "string" && provider.trim().length > 0;
+    const selectedProvider = hasExplicitProvider ? (provider.trim() as AIProvider) : null;
+    const effectiveAllowAI = Boolean(allowAI) && hasExplicitProvider && !aiDisabled;
 
     try {
       let combinedContent = "";
@@ -1841,7 +1844,7 @@ function setupApiRoutes(app: express.Application) {
         Return only a JSON array of absolute URLs.`;
 
         // Call the selected provider for discovery
-        const discoveredUrls = await callProvider(provider, prompt, "Identify internal links as a JSON array of strings.");
+        const discoveredUrls = await callProvider(selectedProvider as AIProvider, prompt, "Identify internal links as a JSON array of strings.");
         const parsed = safeJsonParse(discoveredUrls.content, []);
         if (Array.isArray(parsed)) {
           targetUrls = [...new Set([baseUrl, ...parsed])].slice(0, 30);
@@ -1919,10 +1922,10 @@ function setupApiRoutes(app: express.Application) {
       Content:
       ${combinedContent.slice(0, 40000)}`;
 
-      const config = getProvider(provider as AIProvider);
+      const config = getProvider(selectedProvider as AIProvider);
       const model = config?.discoveryModel;
 
-      const result = await callProvider(provider, extractionPrompt, "Extract company data as a JSON array of objects.", model);
+      const result = await callProvider(selectedProvider as AIProvider, extractionPrompt, "Extract company data as a JSON array of objects.", model);
       const validatedCompanies = await validateAndCleanCompanies(safeJsonParse(result.content, []));
       res.json({
         data: validatedCompanies,
