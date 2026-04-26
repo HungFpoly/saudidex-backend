@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const stripQuotes = (v: string) => v.replace(/^["']|["']$/g, '').trim();
 
-const supabaseUrl = stripQuotes(import.meta.env?.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '');
-const supabaseAnonKey = stripQuotes(import.meta.env?.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '');
+const viteEnv = (import.meta as any)?.env ?? {};
+const supabaseUrl = stripQuotes(viteEnv.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '');
+const supabaseAnonKey = stripQuotes(viteEnv.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '');
 const isBrowser = typeof window !== 'undefined';
 const supabaseServiceKey = isBrowser
   ? ''

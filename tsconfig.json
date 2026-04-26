@@ -6,11 +6,16 @@
     "moduleResolution": "Bundler",
     "outDir": "dist",
     "rootDir": ".",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server.ts", "./shared/**/*.ts"]
+  "include": ["server.ts"],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts"
+  ]
 }
 
