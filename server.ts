@@ -183,6 +183,87 @@ function safeJsonParse<T = any>(str: string, fallback: T): T {
   }
 }
 
+// Deterministic fallback parser for saudiindustryguide.com when adapter/browser extraction fails.
+function parseSaudiIndustryGuideFromMarkdown(markdown: string, sourceUrl: string): any[] {
+  const text = String(markdown || "").replace(/\r/g, "");
+  if (!text.trim()) return [];
+
+  const blocks = text.split(/\n---+\n/g);
+  const out: any[] = [];
+
+  for (const block of blocks) {
+    const heading = block.match(/^\s*###\s+(.+?)\s*$/m);
+    if (!heading) continue;
+
+    const nameRaw = heading[1].trim();
+    if (!nameRaw || /saudi industry guide/i.test(nameRaw)) continue;
+
+    const website = block.match(/^\s*Website:\s*(.+?)\s*$/mi)?.[1]?.trim() || "";
+    const email = block.match(/^\s*Email:\s*(.+?)\s*$/mi)?.[1]?.trim() || "";
+    const phone = block.match(/^\s*Phone:\s*(.+?)\s*$/mi)?.[1]?.trim() || "";
+    const location = block.match(/^\s*Location:\s*(.+?)\s*$/mi)?.[1]?.trim() || "";
+
+    // Keep short factual description from the first non-empty lines after heading.
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("###") && !/^Website:|^Email:|^Phone:|^Location:/i.test(l));
+    const description = lines.slice(0, 2).join(" ").slice(0, 500);
+
+    const normalizedWebsite = website && website !== "—"
+      ? (canonicalizeUrl(website, sourceUrl) || website)
+      : "";
+
+    out.push({
+      name_en: nameRaw,
+      name_ar: "",
+      business_type: "manufacturer",
+      description_en: description || "",
+      description_ar: "",
+      website_url: normalizedWebsite,
+      logo_url: "",
+      phone: phone || "",
+      email: email || "",
+      linkedin_url: "",
+      full_address: location || "",
+      sales_email: "",
+      procurement_email: "",
+      categories: [],
+      products: [],
+      fields: [],
+      confidence_score: 0.65,
+      field_confidence: {
+        name_en: 0.9,
+        name_ar: 0.1,
+        business_type: 0.4,
+        description_en: description ? 0.6 : 0.2,
+        description_ar: 0.1,
+        website_url: normalizedWebsite ? 0.8 : 0.1,
+        logo_url: 0.1,
+        phone: phone ? 0.8 : 0.1,
+        email: email ? 0.8 : 0.1,
+        linkedin_url: 0.1,
+        full_address: location ? 0.7 : 0.1,
+        sales_email: 0.1,
+        procurement_email: 0.1,
+        categories: 0.1,
+        products: 0.1,
+        fields: 0.1,
+      },
+      source_url: sourceUrl,
+    });
+  }
+
+  // Dedupe by normalized name
+  const seen = new Set<string>();
+  return out.filter((c) => {
+    const key = (c.name_en || "").toString().trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // ─── Evidence Storage Helper ─────────────────────────────────────
 // Stores extracted field evidence in the DB for provenance tracking.
 // Called after deterministic extraction — before any AI enrichment.
@@ -1442,7 +1523,23 @@ function setupApiRoutes(app: express.Application) {
           return res.status(403).json({ error: 'Blocked by robots.txt' });
         }
         if (fetched.html) {
-          const result = await adapter.parse(fetched.html, baseUrl);
+          let result = await adapter.parse(fetched.html, baseUrl);
+          if (
+            adapter.id === 'saudi-industry-guide' &&
+            (!Array.isArray(result?.companies) || result.companies.length === 0) &&
+            fetched.markdown
+          ) {
+            const mdCompanies = parseSaudiIndustryGuideFromMarkdown(fetched.markdown, baseUrl);
+            if (mdCompanies.length > 0) {
+              console.log(`[SaudiIndustryGuide] Markdown fallback extracted ${mdCompanies.length} companies.`);
+              result = {
+                ...result,
+                companies: mdCompanies,
+                totalFound: mdCompanies.length,
+                warnings: [...(result?.warnings || []), 'Used markdown deterministic fallback parser.'],
+              };
+            }
+          }
           const paginatedUrls = adapter.discoverPagination?.(fetched.html, baseUrl) ?? [];
           const uniquePaginated = [...new Set(paginatedUrls)];
 
