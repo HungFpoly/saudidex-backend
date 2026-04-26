@@ -187,16 +187,15 @@ function safeJsonParse<T = any>(str: string, fallback: T): T {
 function parseSaudiIndustryGuideFromMarkdown(markdown: string, sourceUrl: string): any[] {
   const text = String(markdown || "").replace(/\r/g, "");
   if (!text.trim()) return [];
-
-  const blocks = text.split(/\n---+\n/g);
   const out: any[] = [];
 
-  for (const block of blocks) {
-    const heading = block.match(/^\s*###\s+(.+?)\s*$/m);
-    if (!heading) continue;
-
-    const nameRaw = heading[1].trim();
+  // Parse every markdown section that starts with "### <company name>"
+  // until the next heading to avoid extracting only the first block.
+  const sectionRegex = /(?:^|\n)\s*###\s+(.+?)\s*\n([\s\S]*?)(?=\n\s*###\s+|$)/g;
+  for (const match of text.matchAll(sectionRegex)) {
+    const nameRaw = (match[1] || "").trim();
     if (!nameRaw || /saudi industry guide/i.test(nameRaw)) continue;
+    const block = match[2] || "";
 
     const website = block.match(/^\s*Website:\s*(.+?)\s*$/mi)?.[1]?.trim() || "";
     const email = block.match(/^\s*Email:\s*(.+?)\s*$/mi)?.[1]?.trim() || "";
@@ -342,10 +341,11 @@ async function safeFetch(url: string, timeout = 45000): Promise<{ html: string |
 // Smart fetch: automatically detects JS-heavy sites and uses browser rendering
 async function smartFetch(url: string, timeout = 45000): Promise<{ html: string | null; markdown: string; url: string }> {
   const lower = url.toLowerCase();
+  // This domain is handled well by deterministic markdown parsing; avoid local Playwright dependency.
+  const forceHttpOnly = lower.includes('saudiindustryguide.com');
   const isJSHeavy =
     lower.includes('.aspx') ||
     lower.includes('mcci.org.sa') ||
-    lower.includes('saudiindustryguide.com') ||
     lower.includes('angular') ||
     lower.includes('react') ||
     lower.includes('vue.js') ||
@@ -398,6 +398,10 @@ async function smartFetch(url: string, timeout = 45000): Promise<{ html: string 
     } catch (e: any) {
       console.error(`ScrapingBee failed: ${e.message}`);
     }
+  }
+
+  if (forceHttpOnly) {
+    return fetchUrlContent(url, finalTimeout);
   }
 
   if (isJSHeavy) {
