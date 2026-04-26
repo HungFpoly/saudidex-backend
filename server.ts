@@ -40,12 +40,39 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const BUILD_ID = process.env.BUILD_ID || `dev-${Date.now()}`;
 const corsOrigin = (process.env.CORS_ORIGIN || "").trim();
+const corsAllowlist = corsOrigin
+  ? corsOrigin
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean)
+  : [];
+
+const isOriginAllowed = (requestOrigin?: string) => {
+  if (!requestOrigin) return true; // server-to-server / curl / same-origin
+  if (corsAllowlist.length === 0) return true; // dev mode: allow all
+
+  return corsAllowlist.some((rule) => {
+    if (rule === "*") return true;
+    if (rule === requestOrigin) return true;
+    // wildcard support: https://*.vercel.app
+    if (rule.includes("*")) {
+      const escaped = rule.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      return new RegExp(`^${escaped}$`, "i").test(requestOrigin);
+    }
+    return false;
+  });
+};
+
 app.use(
   cors({
-    origin: corsOrigin
-      ? corsOrigin.split(",").map((o) => o.trim()).filter(Boolean)
-      : true, // allow all in dev / unspecified
+    origin: (requestOrigin, callback) => {
+      if (isOriginAllowed(requestOrigin)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${requestOrigin || "unknown"}`));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"],
+    optionsSuccessStatus: 204,
   })
 );
 app.use(express.json());
