@@ -3,7 +3,7 @@ services:
     name: saudidex-backend
     runtime: node
     plan: free
-    buildCommand: npm ci && npx playwright install chromium && npm run build
+    buildCommand: npm ci && npx playwright install --with-deps chromium && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -33,3 +33,5 @@ services:
         sync: false
       - key: SCRAPINGBEE_API_KEY
         sync: false
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
