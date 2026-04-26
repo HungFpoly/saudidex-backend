@@ -67,7 +67,10 @@ app.use(
   cors({
     origin: (requestOrigin, callback) => {
       if (isOriginAllowed(requestOrigin)) return callback(null, true);
-      return callback(new Error(`CORS blocked for origin: ${requestOrigin || "unknown"}`));
+      // Do not throw here; throwing turns CORS mismatch into a 500 HTML response.
+      // Returning false keeps the API healthy and lets browser enforce CORS.
+      console.warn(`[CORS] Blocked origin: ${requestOrigin || "unknown"}`);
+      return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
