@@ -1,0 +1,32 @@
+{
+  "companies": {
+    "table": "companies",
+    "primaryKeyStrategy": "none",
+    "primaryKeyName": "",
+    "notes": "Use company.id from Firestore as stable text primary key."
+  },
+  "inquiries": {
+    "table": "inquiries",
+    "primaryKeyStrategy": "none",
+    "primaryKeyName": "",
+    "notes": "Use inquiry.id from Firestore as stable text primary key."
+  },
+  "claim_requests": {
+    "table": "claim_requests",
+    "primaryKeyStrategy": "none",
+    "primaryKeyName": "",
+    "notes": "Use claim request document id as stable text primary key."
+  },
+  "crawl_schedules": {
+    "table": "crawl_schedules",
+    "primaryKeyStrategy": "none",
+    "primaryKeyName": "",
+    "notes": "Schedule doc id should remain primary key."
+  },
+  "ai_logs": {
+    "table": "ai_logs",
+    "primaryKeyStrategy": "none",
+    "primaryKeyName": "",
+    "notes": "Log ids are Firestore doc ids; no generated PK needed."
+  }
+}
